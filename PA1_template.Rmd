@@ -1,25 +1,120 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "PA1_template"
+author: "Tripledot3"
+date: "April 29, 2019"
+output: html_document
 ---
 
+I am going to load the data into R. Open the 3 libraries.
+``` {r}
+Act <- read.csv("activity.csv")
+library(lubridate)
+library(plyr)
+library(ggplot2)
+```
+Adding in the weekday element and formatting the date
+```{r}
+Act$day <- weekdays(as.Date(Act$date))
+Act$date <- ymd(as.character(Act$date))
+steps_by_interval <- aggregate(steps ~ interval, Act, mean)
+steps_by_day <- aggregate(steps ~ date, Act, sum)
+clean <- Act[!is.na(Act$steps),]
+```
 
-## Loading and preprocessing the data
+Now I want to sort data properly to get the total of steps walked for each day
+
+``` {r}
+Act_T <- aggregate(Act$steps, by = list(Date = Act$date), FUN = sum)
+```
+
+Now I will make a histogram of the steps
+
+``` {r}
+hist(Act_T$x, xlab = "Steps", main = "Total Steps per day")
+```
 
 
 
-## What is mean total number of steps taken per day?
+Lastly, I want to provide the mean and the median of the total steps per day
+
+``` {r}
+rmean <- mean(Act_T$x, na.rm = TRUE)
+rmean 
+rmedian <- median(Act_T$x, na.rm = TRUE)
+rmedian
+```
+
+Now I want to get the total of steps walked for each day
+
+``` {r}
+Act_M <- aggregate(Act$steps, by = list(interval = Act$interval), FUN = mean,  na.rm = TRUE)
+```
+
+Now I will make a  time series plot of the steps
+
+``` {r}
+plot(Act_M$x, xlab = "Interval", ylab = "Steps", main = "Total Steps per day", type = "l")
+```
+ 
+ Find the Interval with the MAx
+ 
+``` {r}
+MaxSteps <- max(Act_M$x)
+Act_M[Act_M$x==MaxSteps,1]
+```
+Provide the count of NA's within the data
+
+``` {r}
+nrow(Act[is.na(Act$steps),])
+
+```
+Missing data is being Imputed, replaced by the average
+``` {r}
+incomplete <- sum(!complete.cases(Act))
+
+imputed_data <- transform(Act, steps = ifelse(is.na(Act$steps), steps_by_interval$steps[match(Act$interval, steps_by_interval$interval)], Act$steps))
+```
+Imputed the first day into Zero
+```{r}
+imputed_data[as.character(imputed_data$date) == "2012-10-01", 1] <- 0
+```
+Creating Histogram
+```{r}
+steps_by_interval <- aggregate(steps ~ interval, Act, mean)
+steps_by_day <- aggregate(steps ~ date, Act, sum)
 
 
+steps_by_day_i <- aggregate(steps ~ date, imputed_data, sum)
 
-## What is the average daily activity pattern?
+hist(steps_by_day_i$steps, main = paste("Total Steps Each Day"), col="blue", xlab="Number of Steps")
 
+hist(steps_by_day$steps, main = paste("Total Steps Each Day"), col="red", xlab="Number of Steps", add=T)
+legend("topright", c("Imputed", "Non-imputed"), col=c("blue", "red"), lwd=10)
+```
+Getting the Mean & Median for the imputed data
+```{r}
+mean_imputed <- mean(steps_by_day_i$steps)
+mean_imputed
+median_imputed <- median(steps_by_day_i$steps)
+median_imputed 
+```
+Getting the difference of the imputed & total difference
+``` {r}
+mean_differ <- mean_imputed - rmean
+mean_differ
+median_differ <- median_imputed - rmedian
+median_differ
+total_differ <- sum(steps_by_day_i$steps) - sum(steps_by_day$steps)
+total_differ
+```
+Creating the Plot
+```{r}
+weekdays <- c("Monday", "Tuesday", "Wednesday", "Thursday", 
+              "Friday")
+imputed_data$dow = as.factor(ifelse(is.element(weekdays(as.Date(imputed_data$date)),weekdays), "Weekday", "Weekend"))
 
+steps_by_interval_i <- aggregate(steps ~ interval + dow, imputed_data, mean)
 
-## Imputing missing values
+library(lattice)
 
-
-
-## Are there differences in activity patterns between weekdays and weekends?
+xyplot(steps_by_interval_i$steps ~ steps_by_interval_i$interval|steps_by_interval_i$dow, main="Average Steps per Day by Interval",xlab="Interval", ylab="Steps",layout=c(1,2), type="l")
